@@ -1,0 +1,2 @@
+make-completion-enhanced.bash usr/share/bash-completion/completions/make
+_make-completion-enhanced usr/share/zsh/site-functions/_make

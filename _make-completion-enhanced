@@ -1,0 +1,25 @@
+#compdef make
+
+_make() {
+  local target="${words[2]}"
+  local cache="$HOME/.cache/make-completion-enhanced.cache"
+
+  if [[ ! -f "$cache" || Makefile -nt "$cache" ]]; then
+    awk '
+    BEGIN { tgt="__global__" }
+    /^## TARGET / { tgt=$3 }
+    /^## PARAM / {
+      name=$3; sub(":", "", name)
+      vals=""
+      for (i=4;i<=NF;i++) if ($i !~ /TYPE=|REQUIRED|DEFAULT=/) vals=vals" "$i
+      print name"|"tgt"|"vals
+    }' Makefile > "$cache"
+  fi
+
+  if (( CURRENT == 2 )); then
+    _describe targets "${(@f)$(awk -F: '/^[a-zA-Z0-9_.-]+:/{print $1}' Makefile)}"
+  else
+    _describe params "${(@f)$(awk -F'|' -v t="$target" '($2=="__global__"||$2==t){split($3,v," ");for(i in v)print $1"="v[i]}' "$cache")}"
+  fi
+}
+_make

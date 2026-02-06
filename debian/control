@@ -1,0 +1,7 @@
+Package: make-completion-enhanced
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Example <example@example.com>
+Description: Enhanced Make completion with parameters and conditions
