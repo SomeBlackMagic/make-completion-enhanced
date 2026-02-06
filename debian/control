@@ -1,7 +1,14 @@
-Package: make-completion-enhanced
-Version: 0.1.0
+Source: make-completion-enhanced
 Section: utils
 Priority: optional
-Architecture: all
 Maintainer: Example <example@example.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: make-completion-enhanced
+Architecture: all
+Depends: ${misc:Depends}
 Description: Enhanced Make completion with parameters and conditions
+ Makefile-driven CLI schema with typed parameters,
+ conditional subcommands and Bash/Zsh completion.
