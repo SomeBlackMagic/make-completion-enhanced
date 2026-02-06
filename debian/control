@@ -2,7 +2,7 @@ Source: make-completion-enhanced
 Section: utils
 Priority: optional
 Maintainer: Example <example@example.com>
-Build-Depends: debhelper-compat (= 13)
+Build-Depends: debhelper-compat (= 13), build-essential
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 
