@@ -6,4 +6,3 @@ make-completion-enhanced (0.1.0) unstable; urgency=medium
   * Conditional and per-target parameters.
 
  -- Example Maintainer <example@example.com>  Fri, 06 Feb 2026 16:21:21 +0000
-
