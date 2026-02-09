@@ -1,8 +1,9 @@
-name: Build deb package
+name: Build and publish deb package
 
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
 
 jobs:
@@ -10,13 +11,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y debhelper dh-make dpkg-dev debhelper-compat build-essential
-      - name: Build deb
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y debhelper dpkg-dev build-essential
+
+      - name: Build deb package
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Collect deb artifacts
         run: |
-          dpkg-buildpackage -us -uc
+          mkdir -p dist
+          cp ../*.deb dist/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb-package
-          path: ../*.deb
+          path: dist/*.deb
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.deb
