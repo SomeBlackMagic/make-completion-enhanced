@@ -2,7 +2,10 @@
 
 _make() {
   local target="${words[2]}"
-  local cache="$HOME/.cache/make-completion-enhanced.cache"
+  local cache_dir cache
+  cache_dir="$HOME/.cache/make-completion-enhanced"
+  mkdir -p "$cache_dir"
+  cache="$cache_dir/$(pwd | tr '/' '_').cache"
 
   if [[ ! -f "$cache" || Makefile -nt "$cache" ]]; then
     awk '
