@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `## OPT` annotation for CLI-style flags and options
+  - Supports `--flag` (boolean), `--flag: v1 v2` (fixed values), `--flag:` (free-form value)
+  - Short options: `-f`, `-f: v1 v2`
+  - Completion for both `--flag value` and `--flag=value` styles
+  - Distinguished from PARAM/ARGS in cache by name starting with `-`
+- `## ARGS N:` annotation for positional argument completion
+  - Defines per-position completions for targets using RUN_ARGS pattern
+  - `N` is the 1-based argument position after the target name
+  - Outputs plain word suggestions (not `key=value`)
+  - Can be combined with `## PARAM` on the same target
+  - Cache key format: `__args_N__|target|values`
+- Per-project cache: cache file now depends on working directory
+  (`~/.cache/make-completion-enhanced/<path>.cache`)
 - Comprehensive documentation suite
   - README.md with detailed examples
   - USAGE.md with real-world use cases
@@ -16,10 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CHANGELOG.md for version tracking
 
 ### Changed
+- Debian package installs bash completion to `/etc/bash_completion.d/make-completion-enhanced`
+  instead of `/usr/share/bash-completion/completions/make` to avoid conflict with
+  `bash-completion` package
 - Enhanced README with multiple practical examples
 - Improved code documentation
 
 ### Fixed
+- `dpkg --install` conflict with `bash-completion` package owning the same file path
 - Documentation typos and formatting issues
 
 ## [1.0.0] - 2024-01-15

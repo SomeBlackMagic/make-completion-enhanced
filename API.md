@@ -123,6 +123,127 @@ Defines the scope for subsequent PARAM annotations:
 # coverage is only available for 'make test'
 ```
 
+### ARGS Annotation
+
+Defines positional argument completions for a target. `N` is the 1-based
+position of the argument after the target name.
+
+```makefile
+## ARGS <N>: <value1> <value2> ... <valueN>
+```
+
+#### Components
+
+| Component | Required | Description | Example |
+|-----------|----------|-------------|---------|
+| `N` | Yes | 1-based argument position | `1`, `2`, `3` |
+| `:` | Yes | Separator | `:` |
+| `values` | Yes | Space-separated completion values | `host1 host2` |
+
+#### Examples
+
+```makefile
+# Single positional argument
+## TARGET run
+## ARGS 1: api worker scheduler
+
+# Multiple positions
+## TARGET ssh
+## ARGS 1: host1.example.com host2.example.com
+## ARGS 2: bash htop journalctl
+
+# Combined with PARAM
+## TARGET deploy
+## PARAM env: dev prod
+## ARGS 1: us-east-1 eu-west-1
+```
+
+#### Completion Behavior
+
+```bash
+make run <TAB>          # → api  worker  scheduler
+make ssh <TAB>          # → host1.example.com  host2.example.com
+make ssh host1 <TAB>    # → bash  htop  journalctl
+```
+
+Positional completions are output as plain words (no `=` sign),
+whereas `## PARAM` completions are output as `name=value`.
+
+#### Cache Format for ARGS
+
+`## ARGS N:` entries are stored with a special name pattern:
+
+```
+__args_N__|target|values
+```
+
+Example:
+```
+__args_1__|ssh|host1.example.com host2.example.com
+__args_2__|ssh|bash htop journalctl
+```
+
+### OPT Annotation
+
+Defines CLI-style flags and options (`--flag`, `-f`, `--flag value`, `--flag=value`).
+
+```makefile
+## OPT <flag>[: <value1> <value2> ...]
+```
+
+#### Components
+
+| Component | Required | Description | Example |
+|-----------|----------|-------------|---------|
+| `flag` | Yes | Flag name (must start with `-`) | `--verbose`, `-d`, `--log-level:` |
+| `:` | No | Append to flag name to indicate it accepts a value | `--log-level:` |
+| `values` | No | Space-separated completion values | `debug info warning` |
+
+#### Examples
+
+```makefile
+# Boolean flag (no value)
+## OPT --verbose
+## OPT -v
+
+# Flag with fixed values
+## OPT --log-level: debug info warning error
+
+# Short flag with values
+## OPT -l: debug info warning error
+
+# Flag with free-form value (no completion suggestions)
+## OPT --log-file:
+## OPT -f:
+```
+
+#### Completion Behavior
+
+```bash
+make run -<TAB>               # → --verbose  -v  --log-level  --log-file
+make run --log-level <TAB>    # → debug  info  warning  error  (space style)
+make run --log-level=<TAB>    # → --log-level=debug  --log-level=info  ...
+make run --log-file <TAB>     # → (no suggestions, free-form value)
+```
+
+For long options (`--`) with values, the completion also suggests `--opt=val` style
+so the user can pick either style. Short options (`-`) are only completed in space style.
+
+#### Cache Format for OPT
+
+`## OPT` entries share the same cache format as `## PARAM`.
+They are distinguished by the flag name starting with `-`:
+
+```
+--log-level|run| debug info warning error
+--verbose|run|
+-v|run|
+--log-file|run|
+```
+
+Internally, during completion, entries whose name starts with `-` are handled
+as CLI options rather than Make parameters.
+
 ## Parsing Logic
 
 ### AWK Script Breakdown
@@ -153,6 +274,32 @@ BEGIN {
   # Output: name|target|values
   print name "|" tgt "|" vals
 }
+
+/^## ARGS / {
+  pos=$3
+  sub(":", "", pos)  # Remove trailing colon from position number
+
+  vals=""
+  for (i=4; i<=NF; i++) {
+    vals = vals " " $i
+  }
+
+  # Output: __args_N__|target|values
+  print "__args_" pos "__|" tgt "|" vals
+}
+
+/^## OPT / {
+  name=$3
+  sub(":", "", name)  # Remove trailing colon (e.g. "--flag:" → "--flag")
+
+  vals=""
+  for (i=4; i<=NF; i++) {
+    vals = vals " " $i
+  }
+
+  # Output: --flag|target|values  (same format as PARAM)
+  print name "|" tgt "|" vals
+}
 ```
 
 ### Parsing Steps
@@ -161,11 +308,21 @@ BEGIN {
 2. **Process Each Line**:
    - If line matches `## TARGET <name>`: Update scope to target name
    - If line matches `## PARAM <spec>`: Extract parameter info
+   - If line matches `## ARGS <N>: <values>`: Extract positional arg info
+   - If line matches `## OPT <flag>[: <values>]`: Extract CLI option info
 3. **Parameter Extraction**:
    - Extract parameter name (field 3)
    - Remove trailing colon from name
    - Collect values (fields 4+) excluding TYPE/REQUIRED/DEFAULT
-4. **Output**: Write `name|target|values` to cache
+4. **Positional Arg Extraction**:
+   - Extract position number (field 3, strip colon)
+   - Collect values (fields 4+)
+   - Store under special key `__args_N__`
+5. **CLI Option Extraction**:
+   - Extract flag name (field 3, strip colon)
+   - Collect values (fields 4+) — empty means boolean flag
+   - Store under the flag name (starts with `-`)
+6. **Output**: Write `name|target|values` to cache
 
 ### Example
 
@@ -174,12 +331,17 @@ Input Makefile:
 ## PARAM env: dev prod
 ## TARGET deploy
 ## PARAM region: us-east-1 eu-west-1
+## TARGET ssh
+## ARGS 1: host1 host2
+## ARGS 2: bash htop
 ```
 
 Output Cache:
 ```
 env|__global__|dev prod
 region|deploy|us-east-1 eu-west-1
+__args_1__|ssh|host1 host2
+__args_2__|ssh|bash htop
 ```
 
 ## Completion Flow
@@ -204,11 +366,13 @@ _make_completion_enhanced() {
     return
   fi
 
-  # 4. Complete parameters (position 2+)
-  COMPREPLY=( $(awk -F'|' -v t="$target" '
+  # 4. Complete parameters or positional args (position 2+)
+  local pos=$(( COMP_CWORD - 1 ))
+  COMPREPLY=( $(awk -F'|' -v t="$target" -v pos="$pos" '
     ($2=="__global__"||$2==t) {
       split($3,v," ")
-      for(i in v) print $1"="v[i]
+      if ($1=="__args_"pos"__") { for(i in v) print v[i] }
+      else if ($1!~/^__args_/) { for(i in v) print $1"="v[i] }
     }
   ' "$cache" | compgen -W "$(cat)" -- "$cur") )
 }
@@ -232,11 +396,13 @@ _make() {
   if (( CURRENT == 2 )); then
     _describe targets "${(@f)$(awk -F: '/^[a-zA-Z0-9_.-]+:/{print $1}' Makefile)}"
   else
-    # 4. Complete parameters (position 3+)
-    _describe params "${(@f)$(awk -F'|' -v t="$target" '
+    # 4. Complete parameters or positional args (position 3+)
+    local pos=$(( CURRENT - 2 ))
+    _describe params "${(@f)$(awk -F'|' -v t="$target" -v pos="$pos" '
       ($2=="__global__"||$2==t) {
         split($3,v," ")
-        for(i in v) print $1"="v[i]
+        if ($1=="__args_"pos"__") { for(i in v) print v[i] }
+        else if ($1!~/^__args_/) { for(i in v) print $1"="v[i] }
       }
     ' "$cache")}"
   fi

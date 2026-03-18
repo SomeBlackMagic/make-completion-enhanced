@@ -6,6 +6,8 @@ This guide provides detailed examples and use cases for `make-completion-enhance
 
 - [Quick Start](#quick-start)
 - [Parameter Types](#parameter-types)
+- [Positional Arguments](#positional-arguments)
+- [CLI Options](#cli-options)
 - [Real-World Examples](#real-world-examples)
 - [Best Practices](#best-practices)
 - [Common Patterns](#common-patterns)
@@ -81,6 +83,160 @@ Force users to provide values:
 deploy:
 	@[ -z "$(environment)" ] && echo "Error: environment required" && exit 1 || true
 	@echo "Deploying to $(environment)"
+```
+
+## Positional Arguments
+
+Use `## ARGS N:` to define completion for positional arguments (not `key=value` pairs).
+`N` is the 1-based index of the argument position after the target name.
+
+This is useful when your Makefile uses the `RUN_ARGS` pattern to pass
+positional arguments to underlying commands:
+
+```makefile
+RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+```
+
+### Single Positional Argument
+
+```makefile
+## TARGET run
+## ARGS 1: api worker scheduler
+run:
+	@echo "Starting component: $(firstword $(RUN_ARGS))"
+```
+
+```bash
+make run <TAB>       # Shows: api  worker  scheduler
+make run api         # Output: Starting component: api
+```
+
+### Multiple Positional Arguments
+
+Define different completions for each position:
+
+```makefile
+## TARGET ssh
+## ARGS 1: server1.example.com server2.example.com bastion.example.com
+## ARGS 2: bash htop journalctl
+
+ssh:
+	docker compose run --rm -it ssh-client $(RUN_ARGS)
+```
+
+```bash
+make ssh <TAB>                 # Shows: server1.example.com  server2.example.com  bastion.example.com
+make ssh server1 <TAB>         # Shows: bash  htop  journalctl
+make ssh server1 bash          # Connects and runs bash
+```
+
+### Mixing PARAM and ARGS
+
+`## PARAM` and `## ARGS` can coexist on the same target:
+
+```makefile
+## TARGET deploy
+## PARAM env: dev stage prod
+## ARGS 1: us-east-1 eu-west-1 ap-southeast-1
+deploy:
+	@echo "Deploying to $(env) in $(firstword $(RUN_ARGS))"
+```
+
+```bash
+make deploy env=<TAB>       # Shows: dev  stage  prod
+make deploy env=prod <TAB>  # Shows: us-east-1  eu-west-1  ap-southeast-1
+```
+
+## CLI Options
+
+Use `## OPT` to define CLI-style flags for targets that pass arguments to
+underlying programs via `RUN_ARGS` or similar patterns.
+
+### Flag without value (boolean flag)
+
+```makefile
+## TARGET run
+## OPT --verbose
+## OPT -v
+run:
+	@app $(RUN_ARGS)
+```
+
+```bash
+make run -<TAB>   # Shows: --verbose  -v
+make run --verbose
+```
+
+### Flag with fixed values
+
+```makefile
+## TARGET run
+## OPT --log-level: debug info warning error critical
+## OPT --format: json text table
+run:
+	@app $(RUN_ARGS)
+```
+
+```bash
+make run --log-level <TAB>    # Shows: debug  info  warning  error  critical
+make run --log-level=<TAB>    # Shows: --log-level=debug  --log-level=info  ...
+make run --format <TAB>       # Shows: json  text  table
+```
+
+### Flag with free-form value
+
+Append `:` without values to indicate the flag accepts a value,
+but no specific completions are provided:
+
+```makefile
+## TARGET run
+## OPT --log-file:
+## OPT --config:
+## OPT -f:
+run:
+	@app $(RUN_ARGS)
+```
+
+```bash
+make run --log-file <TAB>   # No suggestions (free-form value)
+make run -f <TAB>           # No suggestions
+```
+
+### Short and long options together
+
+```makefile
+## TARGET run
+## OPT --log-level: debug info warning error
+## OPT -l: debug info warning error
+## OPT --verbose
+## OPT -v
+## OPT --dry-run
+## OPT -n
+run:
+	@app $(RUN_ARGS)
+```
+
+### Combining OPT with PARAM and ARGS
+
+All three annotation types can coexist on the same target:
+
+```makefile
+RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+
+## TARGET test
+## PARAM env: dev stage prod
+## ARGS 1: unit integration e2e
+## OPT --verbose
+## OPT --log-level: debug info warning
+test:
+	docker compose run --rm test $(env) $(RUN_ARGS)
+```
+
+```bash
+make test env=<TAB>          # Shows: dev  stage  prod
+make test env=dev <TAB>      # Shows: unit  integration  e2e  (positional arg 1)
+make test env=dev unit -<TAB> # Shows: --verbose  --log-level
+make test env=dev unit --log-level <TAB>  # Shows: debug  info  warning
 ```
 
 ## Real-World Examples

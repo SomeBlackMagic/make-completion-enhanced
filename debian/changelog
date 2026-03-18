@@ -1,4 +1,4 @@
-make-completion-enhanced (0.1.0) unstable; urgency=medium
+make-completion-enhanced (0.2.0) unstable; urgency=medium
 
   * Initial release.
   * Makefile-driven CLI schema.

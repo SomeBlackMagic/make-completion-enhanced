@@ -21,6 +21,12 @@ _make_completion_enhanced() {
       vals=""
       for (i=4;i<=NF;i++) vals=vals" "$i
       print "__args_"pos"__|"tgt"|"vals
+    }
+    /^## OPT / {
+      name=$3; sub(":", "", name)
+      vals=""
+      for (i=4;i<=NF;i++) vals=vals" "$i
+      print name"|"tgt"|"vals
     }' Makefile > "$cache"
   fi
 
@@ -29,12 +35,34 @@ _make_completion_enhanced() {
     return
   fi
 
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=( $(awk -F'|' -v t="$target" '
+      ($2=="__global__"||$2==t) && $1~/^-/ {
+        if ($3!="" && $1~/^--/) { split($3,v," "); for(i in v) print $1"="v[i] }
+        print $1
+      }
+    ' "$cache" | compgen -W "$(cat)" -- "$cur") )
+    return
+  fi
+
+  local prev="${COMP_WORDS[COMP_CWORD-1]}"
+  if [[ "$prev" == -* ]]; then
+    local opt_vals
+    opt_vals=$(awk -F'|' -v t="$target" -v opt="$prev" '
+      ($2=="__global__"||$2==t) && $1==opt && $3!="" { print $3 }
+    ' "$cache")
+    if [[ -n "$opt_vals" ]]; then
+      COMPREPLY=( $(compgen -W "$opt_vals" -- "$cur") )
+      return
+    fi
+  fi
+
   local pos=$(( COMP_CWORD - 1 ))
   COMPREPLY=( $(awk -F'|' -v t="$target" -v pos="$pos" '
     ($2=="__global__"||$2==t){
       split($3,v," ")
       if ($1=="__args_"pos"__") { for(i in v) print v[i] }
-      else if ($1!~/^__args_/) { for(i in v) print $1"="v[i] }
+      else if ($1!~/^__args_/ && $1!~/^-/) { for(i in v) print $1"="v[i] }
     }
   ' "$cache" | compgen -W "$(cat)" -- "$cur") )
 }
