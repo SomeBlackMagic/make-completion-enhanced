@@ -15,6 +15,12 @@ _make_completion_enhanced() {
       vals=""
       for (i=4;i<=NF;i++) if ($i !~ /TYPE=|REQUIRED|DEFAULT=/) vals=vals" "$i
       print name"|"tgt"|"vals
+    }
+    /^## ARGS / {
+      pos=$3; sub(":", "", pos)
+      vals=""
+      for (i=4;i<=NF;i++) vals=vals" "$i
+      print "__args_"pos"__|"tgt"|"vals
     }' Makefile > "$cache"
   fi
 
@@ -23,8 +29,13 @@ _make_completion_enhanced() {
     return
   fi
 
-  COMPREPLY=( $(awk -F'|' -v t="$target" '
-    ($2=="__global__"||$2==t){split($3,v," ");for(i in v)print $1"="v[i]}
+  local pos=$(( COMP_CWORD - 1 ))
+  COMPREPLY=( $(awk -F'|' -v t="$target" -v pos="$pos" '
+    ($2=="__global__"||$2==t){
+      split($3,v," ")
+      if ($1=="__args_"pos"__") { for(i in v) print v[i] }
+      else if ($1!~/^__args_/) { for(i in v) print $1"="v[i] }
+    }
   ' "$cache" | compgen -W "$(cat)" -- "$cur") )
 }
 complete -F _make_completion_enhanced make

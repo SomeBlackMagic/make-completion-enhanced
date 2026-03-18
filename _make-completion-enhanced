@@ -16,13 +16,26 @@ _make() {
       vals=""
       for (i=4;i<=NF;i++) if ($i !~ /TYPE=|REQUIRED|DEFAULT=/) vals=vals" "$i
       print name"|"tgt"|"vals
+    }
+    /^## ARGS / {
+      pos=$3; sub(":", "", pos)
+      vals=""
+      for (i=4;i<=NF;i++) vals=vals" "$i
+      print "__args_"pos"__|"tgt"|"vals
     }' Makefile > "$cache"
   fi
 
   if (( CURRENT == 2 )); then
     _describe targets "${(@f)$(awk -F: '/^[a-zA-Z0-9_.-]+:/{print $1}' Makefile)}"
   else
-    _describe params "${(@f)$(awk -F'|' -v t="$target" '($2=="__global__"||$2==t){split($3,v," ");for(i in v)print $1"="v[i]}' "$cache")}"
+    local pos=$(( CURRENT - 2 ))
+    _describe params "${(@f)$(awk -F'|' -v t="$target" -v pos="$pos" '
+      ($2=="__global__"||$2==t){
+        split($3,v," ")
+        if ($1=="__args_"pos"__") { for(i in v) print v[i] }
+        else if ($1!~/^__args_/) { for(i in v) print $1"="v[i] }
+      }
+    ' "$cache")}"
   fi
 }
 _make
