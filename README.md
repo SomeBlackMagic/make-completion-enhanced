@@ -65,10 +65,11 @@ Add special comments to your Makefile to define parameters:
 ## PARAM <name> TYPE=<type> [REQUIRED] [DEFAULT=<value>]
 ## TARGET <target-name>
 ## ARGS <N>: <value1> <value2> ...
+## OPT <flag>[: <value1> <value2> ...]
 ```
 
-`## ARGS N:` defines positional arguments for a target, where `N` is the
-1-based position of the argument. Completion suggests plain words (not `key=value`).
+`## ARGS N:` defines positional arguments (plain words, not `key=value`).
+`## OPT` defines CLI-style flags (`--flag`, `-f`, `--flag=value`, `--flag value`).
 
 ### Complete Example
 
@@ -207,6 +208,31 @@ make run-chain host1 <TAB>  # Shows: state.apply  state.highstate  test.ping
 ```
 
 `## PARAM` and `## ARGS` can be used together on the same target.
+
+### CLI Options (Flags)
+
+Use `## OPT` to define CLI-style flags and options:
+
+```makefile
+## TARGET run
+## OPT --log-level: debug info warning error
+## OPT --log-file:
+## OPT --verbose
+## OPT -d
+## OPT -D
+run:
+	@app $(RUN_ARGS)
+```
+
+```bash
+make run -<TAB>             # Shows: --log-level  --log-file  --verbose  -d  -D
+make run --log-level <TAB>  # Shows: debug  info  warning  error
+make run --log-level=<TAB>  # Shows: --log-level=debug  --log-level=info  ...
+```
+
+- Flag with values (`--flag: v1 v2`): completes both `--flag val` and `--flag=val` style
+- Flag without values (`--verbose`, `-d`): completes just the flag name
+- Flag with free-form value (`--flag:`): completes the flag name only
 
 ## Advanced Examples
 

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `## OPT` annotation for CLI-style flags and options
+  - Supports `--flag` (boolean), `--flag: v1 v2` (fixed values), `--flag:` (free-form value)
+  - Short options: `-f`, `-f: v1 v2`
+  - Completion for both `--flag value` and `--flag=value` styles
+  - Distinguished from PARAM/ARGS in cache by name starting with `-`
 - `## ARGS N:` annotation for positional argument completion
   - Defines per-position completions for targets using RUN_ARGS pattern
   - `N` is the 1-based argument position after the target name

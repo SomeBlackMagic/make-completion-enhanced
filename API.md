@@ -183,6 +183,67 @@ __args_1__|ssh|host1.example.com host2.example.com
 __args_2__|ssh|bash htop journalctl
 ```
 
+### OPT Annotation
+
+Defines CLI-style flags and options (`--flag`, `-f`, `--flag value`, `--flag=value`).
+
+```makefile
+## OPT <flag>[: <value1> <value2> ...]
+```
+
+#### Components
+
+| Component | Required | Description | Example |
+|-----------|----------|-------------|---------|
+| `flag` | Yes | Flag name (must start with `-`) | `--verbose`, `-d`, `--log-level:` |
+| `:` | No | Append to flag name to indicate it accepts a value | `--log-level:` |
+| `values` | No | Space-separated completion values | `debug info warning` |
+
+#### Examples
+
+```makefile
+# Boolean flag (no value)
+## OPT --verbose
+## OPT -v
+
+# Flag with fixed values
+## OPT --log-level: debug info warning error
+
+# Short flag with values
+## OPT -l: debug info warning error
+
+# Flag with free-form value (no completion suggestions)
+## OPT --log-file:
+## OPT -f:
+```
+
+#### Completion Behavior
+
+```bash
+make run -<TAB>               # → --verbose  -v  --log-level  --log-file
+make run --log-level <TAB>    # → debug  info  warning  error  (space style)
+make run --log-level=<TAB>    # → --log-level=debug  --log-level=info  ...
+make run --log-file <TAB>     # → (no suggestions, free-form value)
+```
+
+For long options (`--`) with values, the completion also suggests `--opt=val` style
+so the user can pick either style. Short options (`-`) are only completed in space style.
+
+#### Cache Format for OPT
+
+`## OPT` entries share the same cache format as `## PARAM`.
+They are distinguished by the flag name starting with `-`:
+
+```
+--log-level|run| debug info warning error
+--verbose|run|
+-v|run|
+--log-file|run|
+```
+
+Internally, during completion, entries whose name starts with `-` are handled
+as CLI options rather than Make parameters.
+
 ## Parsing Logic
 
 ### AWK Script Breakdown
@@ -226,6 +287,19 @@ BEGIN {
   # Output: __args_N__|target|values
   print "__args_" pos "__|" tgt "|" vals
 }
+
+/^## OPT / {
+  name=$3
+  sub(":", "", name)  # Remove trailing colon (e.g. "--flag:" → "--flag")
+
+  vals=""
+  for (i=4; i<=NF; i++) {
+    vals = vals " " $i
+  }
+
+  # Output: --flag|target|values  (same format as PARAM)
+  print name "|" tgt "|" vals
+}
 ```
 
 ### Parsing Steps
@@ -235,6 +309,7 @@ BEGIN {
    - If line matches `## TARGET <name>`: Update scope to target name
    - If line matches `## PARAM <spec>`: Extract parameter info
    - If line matches `## ARGS <N>: <values>`: Extract positional arg info
+   - If line matches `## OPT <flag>[: <values>]`: Extract CLI option info
 3. **Parameter Extraction**:
    - Extract parameter name (field 3)
    - Remove trailing colon from name
@@ -243,7 +318,11 @@ BEGIN {
    - Extract position number (field 3, strip colon)
    - Collect values (fields 4+)
    - Store under special key `__args_N__`
-5. **Output**: Write `name|target|values` to cache
+5. **CLI Option Extraction**:
+   - Extract flag name (field 3, strip colon)
+   - Collect values (fields 4+) — empty means boolean flag
+   - Store under the flag name (starts with `-`)
+6. **Output**: Write `name|target|values` to cache
 
 ### Example
 
