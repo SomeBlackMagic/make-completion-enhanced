@@ -2,13 +2,13 @@ Source: make-completion-enhanced
 Section: utils
 Priority: optional
 Maintainer: Example <example@example.com>
-Build-Depends: debhelper-compat (= 13), build-essential
+Build-Depends: debhelper-compat (= 13), build-essential, bash-completion
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 
 Package: make-completion-enhanced
 Architecture: all
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, bash-completion
 Description: Enhanced Make completion with parameters and conditions
  Makefile-driven CLI schema with typed parameters,
  conditional subcommands and Bash/Zsh completion.
