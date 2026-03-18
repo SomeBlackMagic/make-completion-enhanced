@@ -6,6 +6,7 @@ This guide provides detailed examples and use cases for `make-completion-enhance
 
 - [Quick Start](#quick-start)
 - [Parameter Types](#parameter-types)
+- [Positional Arguments](#positional-arguments)
 - [Real-World Examples](#real-world-examples)
 - [Best Practices](#best-practices)
 - [Common Patterns](#common-patterns)
@@ -81,6 +82,68 @@ Force users to provide values:
 deploy:
 	@[ -z "$(environment)" ] && echo "Error: environment required" && exit 1 || true
 	@echo "Deploying to $(environment)"
+```
+
+## Positional Arguments
+
+Use `## ARGS N:` to define completion for positional arguments (not `key=value` pairs).
+`N` is the 1-based index of the argument position after the target name.
+
+This is useful when your Makefile uses the `RUN_ARGS` pattern to pass
+positional arguments to underlying commands:
+
+```makefile
+RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+```
+
+### Single Positional Argument
+
+```makefile
+## TARGET run
+## ARGS 1: api worker scheduler
+run:
+	@echo "Starting component: $(firstword $(RUN_ARGS))"
+```
+
+```bash
+make run <TAB>       # Shows: api  worker  scheduler
+make run api         # Output: Starting component: api
+```
+
+### Multiple Positional Arguments
+
+Define different completions for each position:
+
+```makefile
+## TARGET ssh
+## ARGS 1: server1.example.com server2.example.com bastion.example.com
+## ARGS 2: bash htop journalctl
+
+ssh:
+	docker compose run --rm -it ssh-client $(RUN_ARGS)
+```
+
+```bash
+make ssh <TAB>                 # Shows: server1.example.com  server2.example.com  bastion.example.com
+make ssh server1 <TAB>         # Shows: bash  htop  journalctl
+make ssh server1 bash          # Connects and runs bash
+```
+
+### Mixing PARAM and ARGS
+
+`## PARAM` and `## ARGS` can coexist on the same target:
+
+```makefile
+## TARGET deploy
+## PARAM env: dev stage prod
+## ARGS 1: us-east-1 eu-west-1 ap-southeast-1
+deploy:
+	@echo "Deploying to $(env) in $(firstword $(RUN_ARGS))"
+```
+
+```bash
+make deploy env=<TAB>       # Shows: dev  stage  prod
+make deploy env=prod <TAB>  # Shows: us-east-1  eu-west-1  ap-southeast-1
 ```
 
 ## Real-World Examples

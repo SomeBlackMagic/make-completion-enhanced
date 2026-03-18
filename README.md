@@ -64,7 +64,11 @@ Add special comments to your Makefile to define parameters:
 ## PARAM <name>: <value1> <value2> ...
 ## PARAM <name> TYPE=<type> [REQUIRED] [DEFAULT=<value>]
 ## TARGET <target-name>
+## ARGS <N>: <value1> <value2> ...
 ```
+
+`## ARGS N:` defines positional arguments for a target, where `N` is the
+1-based position of the argument. Completion suggests plain words (not `key=value`).
 
 ### Complete Example
 
@@ -183,6 +187,26 @@ Example:
 ## PARAM debug TYPE=bool DEFAULT=False
 ## PARAM level TYPE=enum DEFAULT=info
 ```
+
+### Positional Arguments
+
+Use `## ARGS N:` to define positional (non-key=value) completion for a target.
+`N` is the 1-based position of the argument after the target name.
+
+```makefile
+## TARGET run-chain
+## ARGS 1: host1 host2 host3
+## ARGS 2: state.apply state.highstate test.ping
+run-chain:
+	@echo "Running on $1 with $2"
+```
+
+```bash
+make run-chain <TAB>        # Shows: host1  host2  host3
+make run-chain host1 <TAB>  # Shows: state.apply  state.highstate  test.ping
+```
+
+`## PARAM` and `## ARGS` can be used together on the same target.
 
 ## Advanced Examples
 
