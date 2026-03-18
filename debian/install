@@ -1,2 +1,2 @@
-make-completion-enhanced.bash usr/share/bash-completion/completions/make
+make-completion-enhanced.bash etc/bash_completion.d/make-completion-enhanced
 _make-completion-enhanced usr/share/zsh/site-functions/_make

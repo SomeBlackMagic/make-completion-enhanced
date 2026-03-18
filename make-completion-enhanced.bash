@@ -1,5 +1,8 @@
 _make_completion_enhanced() {
-  local cur target cache="$HOME/.cache/make-completion-enhanced.cache"
+  local cur target cache_dir cache
+  cache_dir="$HOME/.cache/make-completion-enhanced"
+  mkdir -p "$cache_dir"
+  cache="$cache_dir/$(pwd | tr '/' '_').cache"
   cur="${COMP_WORDS[COMP_CWORD]}"
   target="${COMP_WORDS[1]}"
 
